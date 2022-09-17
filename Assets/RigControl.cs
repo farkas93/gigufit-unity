@@ -24,7 +24,7 @@ public class RigControl : MonoBehaviour
 #if UNITY_EDITOR
         if (Input.GetKey(KeyCode.Mouse1))
         {
-            camera.Rotate(new Vector3(Input.GetAxis("Mouse Y") * rotationSpeed, Input.GetAxis("Mouse X") * rotationSpeed, 0));
+            camera.Rotate(new Vector3(-Input.GetAxis("Mouse Y") * rotationSpeed, Input.GetAxis("Mouse X") * rotationSpeed, 0));
             mouseX = camera.rotation.eulerAngles.x;
             mouseY = camera.rotation.eulerAngles.y;
             camera.rotation = Quaternion.Euler(mouseX, mouseY, 0);
