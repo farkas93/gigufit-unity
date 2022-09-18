@@ -16,6 +16,6 @@ public class HUDUpdater : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        mesh.text = "Heart Rate: " + DatabaseManager.HearBeatsPerSecond.ToString("F") + "/s\nMeters Made: " + RigControl.MetersMadeTotal.ToString("F");
+        mesh.text = "Heart Rate: " + DatabaseManager.HeartRate.ToString("F") + "/s\nMeters Made: " + RigControl.MetersMadeTotal.ToString("F");
     }
 }
