@@ -4,13 +4,14 @@ using UnityEngine;
 
 public class AvatarCollider : MonoBehaviour
 {
-    RigControl controls;
+    public RigControl controls;
 
-    private void OnCollisionEnter(Collision collision)
+
+    private void OnTriggerEnter(Collider other)
     {
-        if (collision.gameObject.tag == "StandingInShaft")
-        {
-
-        }
+        if(other.tag == "StandingInShaft" ||
+            other.tag == "CrouchingInShaft" ||
+            other.tag == "LyingInShaft")
+            controls.SetState( other.gameObject);
     }
 }

@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.Generic;
+using UnityEditor.XR.LegacyInputHelpers;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -14,7 +16,7 @@ public enum GameState
 
 public class RigControl : MonoBehaviour
 {
-    GameState currentState;
+    private static GameState currentState;
     public float rotationSpeed = 3.5f;
     public float movementSpeed = 0.0001f;
     private float mouseX;
@@ -24,9 +26,16 @@ public class RigControl : MonoBehaviour
     public Transform environment;
     Vector3 yConstraint = new Vector3(1.0f, 0.0f, 1.0f);
 
+    float camYOffsetLying = 0.8f;
+    float camYOffsetCrouch = 1.5f;
+    float camYOffsetUpright = 2.0f;
+
     UnityEngine.XR.InputDevice leftHandDevice;
 
-    Transform stateStandingInShaft;
+    private static float metersMadeTotal = 0.0f;
+
+    public static float MetersMadeTotal { get => metersMadeTotal; }
+    public static GameState CurrentState { get => currentState; }
 
     // Start is called before the first frame update
     void Start()
@@ -74,45 +83,90 @@ public class RigControl : MonoBehaviour
 
 #endif
 
+        if (leftHandDevice == null) return;
 
-
-        if (currentState == GameState.FreeWalking)
+        List<UnityEngine.XR.InputFeatureUsage> featureUsages = new List<UnityEngine.XR.InputFeatureUsage>();
+        featureUsages.Add((UnityEngine.XR.InputFeatureUsage)UnityEngine.XR.CommonUsages.primary2DAxis);
+        bool dPadUsed = leftHandDevice.TryGetFeatureUsages(featureUsages);
+        if (dPadUsed || currentState == GameState.Penalty)
         {
-            if (leftHandDevice == null) return;
-
-
-            List<UnityEngine.XR.InputFeatureUsage> featureUsages = new List<UnityEngine.XR.InputFeatureUsage>();
-            featureUsages.Add((UnityEngine.XR.InputFeatureUsage)UnityEngine.XR.CommonUsages.primary2DAxis);
-            bool dPadUsed = leftHandDevice.TryGetFeatureUsages(featureUsages);
-            if (dPadUsed)
+            Vector2 move = new Vector2();
+            leftHandDevice.TryGetFeatureValue(UnityEngine.XR.CommonUsages.primary2DAxis, out move);
+            metersMade = Time.deltaTime * movementSpeed * yConstraint;
+            if (currentState == GameState.FreeWalking)
+                    environment.position -= Vector3.Scale((camera.forward * move.y + camera.right * move.x), metersMade);
+            else if (currentState == GameState.Penalty)
             {
-                Vector2 move = new Vector2();
-                leftHandDevice.TryGetFeatureValue(UnityEngine.XR.CommonUsages.primary2DAxis, out move);
-                metersMade = Time.deltaTime * movementSpeed * yConstraint;
-                environment.position -= Vector3.Scale((camera.forward * move.y + camera.right * move.x), metersMade);
+                environment.position += Vector3.Scale(camera.forward, metersMade);
+
+            }
+            else if ( currentState == GameState.StandingInShaft ||
+                 currentState == GameState.CrouchingInShaft ||
+                 currentState == GameState.LyingInShaft)
+            {
+
+                float sign = (move.y > 0.0f) ? 1.0f : 0.0f;
+                metersMadeTotal += metersMade.x * sign;
+                environment.position -= Vector3.Scale((camera.forward * move.y), metersMade);
             }
         }
 
     }
 
-    public void SetState(GameState gs)
+    public void SetState(GameObject target)
     {
-        currentState = gs;
-
+        CameraOffset offset = this.GetComponent<CameraOffset>();
+        Vector3 direction = (target.transform.position - camera.position);
+        GameState nextState = GameState.StandingInShaft;
         switch (currentState)
         {
+            case GameState.FreeWalking:
+                /*if (target.tag == "StandingInShaft")*/ nextState = GameState.StandingInShaft;
+                metersMadeTotal = 0.0f;
+                offset.cameraYOffset = camYOffsetUpright;
+                break;
             case GameState.StandingInShaft:
+                if (target.tag == "StandingInShaft") nextState = GameState.FreeWalking;
+                else /*if (target.tag == "CrouchingInShaft")*/
+                {
+                    nextState = GameState.CrouchingInShaft;
+                    offset.cameraYOffset = camYOffsetCrouch;
+                }
                 break;
 
             case GameState.CrouchingInShaft:
+                if (target.tag == "CrouchingInShaft")
+                {
+                    nextState = GameState.StandingInShaft;
+                    offset.cameraYOffset = camYOffsetUpright;
+                }
+                else
+                {/*if (target.tag == "LyingInShaft")*/
+                    nextState = GameState.LyingInShaft;
+                    offset.cameraYOffset = camYOffsetLying;
+                }
                 break;
 
             case GameState.LyingInShaft:
+                if (target.tag == "LyingInShaft")
+                {
+                    nextState = GameState.CrouchingInShaft;
+                    offset.cameraYOffset = camYOffsetCrouch;
+                }
                 break;
 
             default:
-                break;
+                break;        
         }
+        currentState = nextState;
+
+        environment.position -= Vector3.Scale(direction, new Vector3(1.0f, 0.0f, 1.0f));
     }
+
+
+    public void SetPenalty() {
+        currentState = GameState.Penalty;
+    }
+
 
 }
